@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-module AFusion 
+module WWFusion
   ( foldrW
   , buildW
   , foldl'

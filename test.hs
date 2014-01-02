@@ -2,13 +2,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module F where
 --import qualified Data.IntMap as IM
-import AFusion as A
+import WWFusion as WW
 
 f :: [[Int]] -> Int
-f x = foldl' (+) 0 $ A.concat x
+f x = foldl' (+) 0 $ WW.concat x
 
 g :: [Int] -> [Int] -> Int
-g x y = foldl' (+) 0 $ x A.++ y
+g x y = foldl' (+) 0 $ x WW.++ y
 
 h :: Tree -> Int
 h t = foldl' (+) 0 $ toList t
