@@ -24,12 +24,12 @@ toList = \tree -> buildW (toListFB tree)
 toListFB
   :: forall r f
   .  Tree
-  -> (forall e. f e -> e -> r -> r)
-  -> (forall e. (e -> r -> r) -> f e)
+  -> (forall e. Iso (f e) (e -> r -> r))
   -> (Int -> r -> r) -> r -> r
-toListFB root wrap unwrap c n = wrap go root n
+toListFB root (Iso wrap unwrap) c n = wrap go root n
   where
     go :: f Tree
     go = unwrap $ \t z -> case t of
       Bin l r -> wrap go l (wrap go r z)
       Tip x -> c x z
+{-# INLINE [0] toListFB #-}
