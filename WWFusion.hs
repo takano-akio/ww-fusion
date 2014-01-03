@@ -6,20 +6,20 @@ module WWFusion
   , foldr
   , (++)
   , concat
-  , Iso(..)
+  , Wrap(..)
   ) where
 
 import Prelude hiding ((++), foldr, concat)
 
-data Iso a b = Iso (a -> b) (b -> a)
+data Wrap a b = Wrap (a -> b) (b -> a)
 
 foldrW
-  :: (forall e. Iso (f e) (e -> b -> b))
+  :: (forall e. Wrap (f e) (e -> b -> b))
   -> (a -> b -> b)
   -> b
   -> [a]
   -> b
-foldrW (Iso wrap unwrap) f z0 list0 = wrap go list0 z0
+foldrW (Wrap wrap unwrap) f z0 list0 = wrap go list0 z0
   where
     go = unwrap $ \list z' -> case list of
       [] -> z'
@@ -28,8 +28,8 @@ foldrW (Iso wrap unwrap) f z0 list0 = wrap go list0 z0
 
 newtype Simple b e = Simple { runSimple :: e -> b -> b }
 
-isoSimple :: Iso (Simple b e) (e -> b -> b)
-isoSimple = Iso runSimple Simple
+isoSimple :: Wrap (Simple b e) (e -> b -> b)
+isoSimple = Wrap runSimple Simple
 
 foldr :: (a -> b -> b) -> b -> [a] -> b
 foldr f z = foldrW isoSimple f z
@@ -37,7 +37,7 @@ foldr f z = foldrW isoSimple f z
 
 buildW
   :: (forall b f
-    .  (forall e. Iso (f e) (e -> b -> b))
+    .  (forall e. Wrap (f e) (e -> b -> b))
     -> (a -> b -> b)
     -> b
     -> b)
@@ -47,7 +47,7 @@ buildW g = g isoSimple (:) []
 
 augmentW
   :: (forall b f
-    .  (forall e. Iso (f e) (e -> b -> b))
+    .  (forall e. Wrap (f e) (e -> b -> b))
     -> (a -> b -> b)
     -> b
     -> b)
@@ -65,7 +65,7 @@ concat xs = buildW (\i c n -> foldrW i (\x y -> foldrW i c y x) n xs)
 {-# INLINE concat #-}
 
 foldl' :: (b -> a -> b) -> b -> [a] -> b
-foldl' f initial xs = foldrW (Iso wrap unwrap) g id xs initial
+foldl' f initial xs = foldrW (Wrap wrap unwrap) g id xs initial
   where
     wrap (Simple s) e k a = k $ s e a
     unwrap u = Simple $ \e -> u e id
@@ -75,9 +75,9 @@ foldl' f initial xs = foldrW (Iso wrap unwrap) g id xs initial
 {-# RULES
 "foldrW/buildW" forall
     f z
-    (i :: forall e. Iso (f e) (e -> b -> b))
+    (i :: forall e. Wrap (f e) (e -> b -> b))
     (g :: forall c g
-      .  (forall e. Iso (g e) (e -> c -> c))
+      .  (forall e. Wrap (g e) (e -> c -> c))
       -> (a -> c -> c)
       -> c
       -> c)
@@ -85,9 +85,9 @@ foldl' f initial xs = foldrW (Iso wrap unwrap) g id xs initial
   foldrW i f z (buildW g) = g i f z
 "foldrW/augmentW" forall
     f z
-    (i :: forall e. Iso (f e) (e -> b -> b))
+    (i :: forall e. Wrap (f e) (e -> b -> b))
     (g :: forall c g
-      .  (forall e. Iso (g e) (e -> c -> c))
+      .  (forall e. Wrap (g e) (e -> c -> c))
       -> (a -> c -> c)
       -> c
       -> c)
@@ -96,12 +96,12 @@ foldl' f initial xs = foldrW (Iso wrap unwrap) g id xs initial
   foldrW i f z (augmentW g xs) = g i f (foldrW i f z xs)
 "augmentW/buildW" forall
     (f :: forall c g
-      .  (forall e. Iso (g e) (e -> c -> c))
+      .  (forall e. Wrap (g e) (e -> c -> c))
       -> (a -> c -> c)
       -> c
       -> c)
     (g :: forall c g
-      .  (forall e. Iso (g e) (e -> c -> c))
+      .  (forall e. Wrap (g e) (e -> c -> c))
       -> (a -> c -> c)
       -> c
       -> c)
