@@ -4,12 +4,15 @@ module WWFusion
   , buildW
   , foldl'
   , foldr
+  , filter
+  , map
+  , eft
   , (++)
   , concat
   , Wrap(..)
   ) where
 
-import Prelude hiding ((++), foldr, concat)
+import Prelude hiding ((++), foldr, concat, filter, map)
 
 data Wrap a b = Wrap (a -> b) (b -> a)
 
@@ -71,6 +74,52 @@ foldl' f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
     unwrap u = Simple $ \e -> u e id
     g x next acc = next $! f acc x
 {-# INLINE foldl' #-}
+
+map :: (a -> b) -> [a] -> [b]
+map f = \xs -> buildW (mapFB f xs)
+
+mapFB
+  :: (a -> b)
+  -> [a]
+  -> (forall e. Wrap (f e) (e -> r -> r))
+  -> (b -> r -> r)
+  -> r
+  -> r
+mapFB f xs ww cons nil = foldrW ww (cons . f) nil xs
+
+filter :: (a -> Bool) -> [a] -> [a]
+filter p = \xs -> buildW (filterFB p xs)
+{-# INLINE filter #-}
+
+eft :: Int -> Int -> [Int]
+eft = \from to -> buildW (eftFB from to)
+{-# INLINE eft #-}
+
+eftFB
+  :: Int
+  -> Int
+  -> (forall e. Wrap (f e) (e -> r -> r))
+  -> (Int -> r -> r)
+  -> r
+  -> r
+eftFB from to (Wrap wrap unwrap) cons nil = wrap go from nil
+  where
+    go = unwrap $ \i rest -> if i <= to
+      then cons i $ wrap go (i + 1) rest
+      else rest
+{-# INLINE[0] eftFB #-}
+
+filterFB
+  :: (a -> Bool)
+  -> [a]
+  -> (forall e. Wrap (f e) (e -> r -> r))
+  -> (a -> r -> r)
+  -> r
+  -> r
+filterFB p xs ww cons nil = foldrW ww f nil xs
+  where
+    f x y = if p x then cons x y else y
+{-# INLINE[0] filterFB #-}
 
 {-# RULES
 "foldrW/buildW" forall
