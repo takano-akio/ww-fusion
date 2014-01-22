@@ -191,6 +191,11 @@ be defined in terms of `buildW` (by ignoring the given wrapper). However I'll
 need to actually replace the whole set of list functions using `foldrW/buildW`
 to see if this is true.
 
+As a preliminary evidence, here is a criterion benchmark that compares
+`foldrW/buildW` against `fold/build` in a number of example scenarios:
+
+http://htmlpreview.github.io/?https://github.com/takano-akio/ww-fusion/blob/master/fusion.html
+
 Alternatives
 ------------
 
