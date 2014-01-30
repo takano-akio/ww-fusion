@@ -24,7 +24,7 @@ toList = \tree -> buildW (toListFB tree)
 toListFB
   :: forall r f
   .  Tree
-  -> (forall e. Wrap (f e) (e -> r -> r))
+  -> (Wrap f r)
   -> (Int -> r -> r) -> r -> r
 toListFB root (Wrap wrap unwrap) c n = wrap go root n
   where
