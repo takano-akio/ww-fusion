@@ -11,7 +11,7 @@ g :: [Int] -> [Int] -> Int
 g x y = foldl' (+) 0 $ x WW.++ y
 
 h :: Tree -> Int
-h t = foldl' (+) 0 $ toList t
+h t = WW.foldl (+) 0 $ toList t
 
 data Tree
   = Bin !Tree !Tree

@@ -2,6 +2,7 @@
 module WWFusion
   ( foldrW
   , buildW
+  , foldl
   , foldl'
   , foldr
   , filter
@@ -72,6 +73,14 @@ foldl' f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
     unwrap u = Simple $ \e -> u e id
     g x next acc = next $! f acc x
 {-# INLINE foldl' #-}
+
+foldl :: (b -> a -> b) -> b -> [a] -> b
+foldl f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
+  where
+    wrap (Simple s) e k a = k $ s e a
+    unwrap u = Simple $ \e -> u e id
+    g x next acc = next $ f acc x
+{-# INLINE foldl #-}
 
 map :: (a -> b) -> [a] -> [b]
 map f = \xs -> buildW (mapFB f xs)
