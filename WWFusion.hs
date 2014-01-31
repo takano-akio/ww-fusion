@@ -1,7 +1,8 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes, ExistentialQuantification #-}
 module WWFusion
   ( foldrW
   , buildW
+  , foldl
   , foldl'
   , foldr
   , filter
@@ -12,12 +13,12 @@ module WWFusion
   , Wrap(..)
   ) where
 
-import Prelude hiding ((++), foldr, concat, filter, map)
+import Prelude hiding ((++), foldl, foldr, concat, filter, map)
 
-data Wrap a b = Wrap (a -> b) (b -> a)
+data Wrap f b = Wrap (forall e. f e -> (e -> b -> b)) (forall e. (e -> b -> b) -> f e)
 
 foldrW
-  :: (forall e. Wrap (f e) (e -> b -> b))
+  :: Wrap f b
   -> (a -> b -> b)
   -> b
   -> [a]
@@ -31,7 +32,7 @@ foldrW (Wrap wrap unwrap) f z0 list0 = wrap go list0 z0
 
 newtype Simple b e = Simple { runSimple :: e -> b -> b }
 
-isoSimple :: Wrap (Simple b e) (e -> b -> b)
+isoSimple :: Wrap (Simple b) b
 isoSimple = Wrap runSimple Simple
 
 foldr :: (a -> b -> b) -> b -> [a] -> b
@@ -39,8 +40,7 @@ foldr f z = foldrW isoSimple f z
 {-# INLINE foldr #-}
 
 buildW
-  :: (forall b f
-    .  (forall e. Wrap (f e) (e -> b -> b))
+  :: (forall b f . (Wrap f b)
     -> (a -> b -> b)
     -> b
     -> b)
@@ -49,8 +49,7 @@ buildW g = g isoSimple (:) []
 {-# INLINE[0] buildW #-}
 
 augmentW
-  :: (forall b f
-    .  (forall e. Wrap (f e) (e -> b -> b))
+  :: (forall b f . (Wrap f b)
     -> (a -> b -> b)
     -> b
     -> b)
@@ -75,13 +74,21 @@ foldl' f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
     g x next acc = next $! f acc x
 {-# INLINE foldl' #-}
 
+foldl :: (b -> a -> b) -> b -> [a] -> b
+foldl f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
+  where
+    wrap (Simple s) e k a = k $ s e a
+    unwrap u = Simple $ \e -> u e id
+    g x next acc = next $ f acc x
+{-# INLINE foldl #-}
+
 map :: (a -> b) -> [a] -> [b]
 map f = \xs -> buildW (mapFB f xs)
 
 mapFB
   :: (a -> b)
   -> [a]
-  -> (forall e. Wrap (f e) (e -> r -> r))
+  -> Wrap f r
   -> (b -> r -> r)
   -> r
   -> r
@@ -98,7 +105,7 @@ eft = \from to -> buildW (eftFB from to)
 eftFB
   :: Int
   -> Int
-  -> (forall e. Wrap (f e) (e -> r -> r))
+  -> (Wrap f r)
   -> (Int -> r -> r)
   -> r
   -> r
@@ -112,7 +119,7 @@ eftFB from to (Wrap wrap unwrap) cons nil = wrap go from nil
 filterFB
   :: (a -> Bool)
   -> [a]
-  -> (forall e. Wrap (f e) (e -> r -> r))
+  -> (Wrap f r)
   -> (a -> r -> r)
   -> r
   -> r
@@ -124,9 +131,9 @@ filterFB p xs ww cons nil = foldrW ww f nil xs
 {-# RULES
 "foldrW/buildW" forall
     f z
-    (i :: forall e. Wrap (f e) (e -> b -> b))
-    (g :: forall c g
-      .  (forall e. Wrap (g e) (e -> c -> c))
+    (i :: Wrap f b)
+    (g :: forall c g .
+      (Wrap g c)
       -> (a -> c -> c)
       -> c
       -> c)
@@ -135,8 +142,8 @@ filterFB p xs ww cons nil = foldrW ww f nil xs
 "foldrW/augmentW" forall
     f z
     (i :: forall e. Wrap (f e) (e -> b -> b))
-    (g :: forall c g
-      .  (forall e. Wrap (g e) (e -> c -> c))
+    (g :: forall c g .
+      (Wrap g c)
       -> (a -> c -> c)
       -> c
       -> c)
@@ -144,13 +151,13 @@ filterFB p xs ww cons nil = foldrW ww f nil xs
     .
   foldrW i f z (augmentW g xs) = g i f (foldrW i f z xs)
 "augmentW/buildW" forall
-    (f :: forall c g
-      .  (forall e. Wrap (g e) (e -> c -> c))
+    (f :: forall c g.
+      (Wrap g c)
       -> (a -> c -> c)
       -> c
       -> c)
-    (g :: forall c g
-      .  (forall e. Wrap (g e) (e -> c -> c))
+    (g :: forall c g .
+      (Wrap g c)
       -> (a -> c -> c)
       -> c
       -> c)
