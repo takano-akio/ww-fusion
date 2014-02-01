@@ -70,7 +70,7 @@ foldl' :: (b -> a -> b) -> b -> [a] -> b
 foldl' f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
   where
     wrap (Simple s) e k a = k $ s e a
-    unwrap u = Simple $ \e -> u e id
+    unwrap u = Simple $ \e a -> u e id a
     g x next acc = next $! f acc x
 {-# INLINE foldl' #-}
 
@@ -78,7 +78,7 @@ foldl :: (b -> a -> b) -> b -> [a] -> b
 foldl f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
   where
     wrap (Simple s) e k a = k $ s e a
-    unwrap u = Simple $ \e -> u e id
+    unwrap u = Simple $ \e a -> u e id a
     g x next acc = next $ f acc x
 {-# INLINE foldl #-}
 
