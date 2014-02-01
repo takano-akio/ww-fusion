@@ -196,6 +196,91 @@ As a preliminary evidence, here is a criterion benchmark that compares
 
 http://htmlpreview.github.io/?https://github.com/takano-akio/ww-fusion/blob/master/fusion.html
 
+How to make a list produer work with foldrW/buildW fusion
+---------------------------------------------------------
+
+If you have a list produer defined using `build`, it needs to be rewritten
+using `buildW` in order to take advantage of the proposed fusion scheme.
+Here I describe how to do such a rewrite.
+
+A good produer in the fold/build framework shold look like this:
+
+```
+{-# LANGUAGE ScopedTypeVariables #-}
+producer :: ... -> [ELEM]
+producer ... = build (producerFB ...)
+
+producerFB :: forall r. ... -> (ELEM -> r -> r) -> r -> r
+producerFB ... = go ...
+  where
+    go :: ... -> r
+    go ... = ... -- usually recursive
+```
+
+I use a version of `enumFromTo` (specialized for Ints) as an example.
+
+```
+eft :: Int -> Int -> [Int]
+eft from to = build (eftFB from to)
+
+eftFB :: forall r. Int -> Int -> (Int -> r -> r) -> r -> r
+eftFB from to cons nil = go from
+  where
+    go :: Int -> r
+    go !i = if i <= to
+      then cons i (go (i + 1))
+      else nil
+```
+
+First, the type of `go` needs to be changed to
+
+```
+go :: A -> r -> r
+```
+
+for some type A, where the second argument (of type `r`) represents the rest of
+the list. This change involves the following two steps:
+
+* explicitly pass around a 'rest' parameter, if it's not being done already.
+* combine all the other arguments into one, using a tuple or () if needed.
+
+In the `eft` example it looks like this:
+
+```
+eftFB :: forall r. Int -> Int -> (Int -> r -> r) -> r -> r
+eftFB from to cons nil = go from nil
+  where
+    go :: Int -> r -> r
+    go !i rest = if i <= to
+      then cons i (go (i + 1) rest)
+      else rest
+```
+
+Now it's straightforward to rewrite the producer function using `buildW`:
+
+* Replace `build` with `buildW`
+* The `FB` function takes an extra argument, `(Wrap wrap unwrap)`.
+* Change the type of `go` from (A -> r -> r) to (f A).
+* Replace each ocurrence of `go` with `wrap go`.
+* Replace the definition of `go`, (go ... = ...) with (go = wrap $ \\... -> ...).
+
+The `eft` example now looks like this:
+
+```
+eft :: Int -> Int -> [Int]
+eft from to = buildW (eftFB from to)
+
+eftFB
+  :: forall r f
+  .  Int -> Int -> Wrap f r -> (Int -> r -> r) -> r -> r
+eftFB from to (Wrap wrap unwrap) cons nil = wrap go from nil
+  where
+    go :: f Int
+    go = unwrap $ \ !i rest -> if i <= to
+      then cons i (wrap go (i + 1) rest)
+      else rest
+```
+
 Alternatives
 ------------
 
