@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, ExistentialQuantification #-}
+{-# LANGUAGE RankNTypes, ExistentialQuantification, ScopedTypeVariables #-}
 module WWFusion
   ( foldrW
   , buildW
@@ -66,18 +66,22 @@ concat :: [[a]] -> [a]
 concat xs = buildW (\i c n -> foldrW i (\x y -> foldrW i c y x) n xs)
 {-# INLINE concat #-}
 
-foldl' :: (b -> a -> b) -> b -> [a] -> b
+foldl' :: forall a b. (b -> a -> b) -> b -> [a] -> b
 foldl' f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
   where
+    wrap :: forall e. Simple b e -> (e -> (b -> b) -> (b -> b))
     wrap (Simple s) e k a = k $ s e a
+    unwrap :: forall e. (e -> (b -> b) -> (b -> b)) -> Simple b e
     unwrap u = Simple $ \e a -> u e id a
     g x next acc = next $! f acc x
 {-# INLINE foldl' #-}
 
-foldl :: (b -> a -> b) -> b -> [a] -> b
+foldl :: forall a b. (b -> a -> b) -> b -> [a] -> b
 foldl f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
   where
+    wrap :: forall e. Simple b e -> (e -> (b -> b) -> (b -> b))
     wrap (Simple s) e k a = k $ s e a
+    unwrap :: forall e. (e -> (b -> b) -> (b -> b)) -> Simple b e
     unwrap u = Simple $ \e a -> u e id a
     g x next acc = next $ f acc x
 {-# INLINE foldl #-}
