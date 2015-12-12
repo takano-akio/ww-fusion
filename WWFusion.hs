@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, ExistentialQuantification #-}
+{-# LANGUAGE RankNTypes, ExistentialQuantification, ScopedTypeVariables #-}
 module WWFusion
   ( foldrW
   , buildW
@@ -66,18 +66,22 @@ concat :: [[a]] -> [a]
 concat xs = buildW (\i c n -> foldrW i (\x y -> foldrW i c y x) n xs)
 {-# INLINE concat #-}
 
-foldl' :: (b -> a -> b) -> b -> [a] -> b
+foldl' :: forall a b. (b -> a -> b) -> b -> [a] -> b
 foldl' f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
   where
+    wrap :: forall e. Simple b e -> (e -> (b -> b) -> (b -> b))
     wrap (Simple s) e k a = k $ s e a
+    unwrap :: forall e. (e -> (b -> b) -> (b -> b)) -> Simple b e
     unwrap u = Simple $ \e a -> u e id a
     g x next acc = next $! f acc x
 {-# INLINE foldl' #-}
 
-foldl :: (b -> a -> b) -> b -> [a] -> b
+foldl :: forall a b. (b -> a -> b) -> b -> [a] -> b
 foldl f initial = \xs -> foldrW (Wrap wrap unwrap) g id xs initial
   where
+    wrap :: forall e. Simple b e -> (e -> (b -> b) -> (b -> b))
     wrap (Simple s) e k a = k $ s e a
+    unwrap :: forall e. (e -> (b -> b) -> (b -> b)) -> Simple b e
     unwrap u = Simple $ \e a -> u e id a
     g x next acc = next $ f acc x
 {-# INLINE foldl #-}
@@ -95,7 +99,9 @@ mapFB
 mapFB f xs ww cons nil = foldrW ww (cons . f) nil xs
 
 filter :: (a -> Bool) -> [a] -> [a]
-filter p = \xs -> buildW (filterFB p xs)
+filter p = \xs -> buildW (\ww cons nil -> foldrW ww (f cons) nil xs)
+  where
+    f cons x y = if p x then cons x y else y
 {-# INLINE filter #-}
 
 eft :: Int -> Int -> [Int]
@@ -115,18 +121,6 @@ eftFB from to (Wrap wrap unwrap) cons nil = wrap go from nil
       then cons i $ wrap go (i + 1) rest
       else rest
 {-# INLINE[0] eftFB #-}
-
-filterFB
-  :: (a -> Bool)
-  -> [a]
-  -> (Wrap f r)
-  -> (a -> r -> r)
-  -> r
-  -> r
-filterFB p xs ww cons nil = foldrW ww f nil xs
-  where
-    f x y = if p x then cons x y else y
-{-# INLINE[0] filterFB #-}
 
 {-# RULES
 "foldrW/buildW" forall
